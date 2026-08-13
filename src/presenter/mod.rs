@@ -33,15 +33,12 @@ pub struct VoiceActivity {
 #[derive(Component)]
 pub struct PresenterRoot;
 
-#[derive(Clone, Copy)]
-pub enum ViewAngle {
-    Left,
-    Front,
-    Right,
+#[derive(Component)]
+pub struct HeadMaterialSet {
+    pub materials: [Handle<StandardMaterial>; 4],
 }
 
 #[derive(Component)]
-pub struct ViewLayer {
-    pub angle: ViewAngle,
-    pub frames: [Handle<Image>; 4],
-}
+pub struct HeadCamera;
+
+pub type MouthMaterials = MeshMaterial3d<StandardMaterial>;

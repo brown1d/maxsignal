@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
-use super::{ViewAngle, ViewLayer, VoiceActivity};
+use super::{HeadCamera, HeadMaterialSet, MouthMaterials, VoiceActivity};
 
 pub fn mouth_motion(
     time: Res<Time>,
     voice: Res<VoiceActivity>,
-    mut q: Query<(&ViewLayer, &mut Sprite, &mut Transform)>,
+    mut sectors: Query<(&HeadMaterialSet, &mut MouthMaterials)>,
+    mut camera: Query<&mut Transform, With<HeadCamera>>,
 ) {
-    let t = time.elapsed_secs();
     let speech_frame = if voice.mouth_open > 0.78 {
         3
     } else if voice.mouth_open > 0.43 {
@@ -17,28 +17,16 @@ pub fn mouth_motion(
     } else {
         0
     };
+    for (set, mut active_material) in &mut sectors {
+        active_material.0 = set.materials[speech_frame].clone();
+    }
 
-    // Blend adjacent view-dependent textures on a shared virtual head object.
-    let camera_yaw = (t * 0.24).sin();
-    let side_mix = ((camera_yaw.abs() - 0.04) / 0.78).clamp(0.0, 1.0);
-    let side_mix = side_mix * side_mix * (3.0 - 2.0 * side_mix);
-
-    for (layer, mut sprite, mut transform) in &mut q {
-        let weight = match layer.angle {
-            ViewAngle::Left if camera_yaw < 0.0 => side_mix,
-            ViewAngle::Right if camera_yaw > 0.0 => side_mix,
-            ViewAngle::Front => 1.0 - side_mix,
-            _ => 0.0,
-        };
-        sprite.image = layer.frames[speech_frame].clone();
-        sprite.color = Color::srgba(1.0, 1.0, 1.0, weight);
-
-        let angle_offset = match layer.angle {
-            ViewAngle::Left => -1.0,
-            ViewAngle::Front => 0.0,
-            ViewAngle::Right => 1.0,
-        };
-        transform.translation.x = angle_offset * side_mix * 5.0;
-        transform.scale.x = 1.0 - side_mix * 0.035;
+    // A real camera physically orbits a stationary curved mesh. There is no
+    // screen-space fade or image-layer substitution between viewing angles.
+    let yaw = (time.elapsed_secs() * 0.24).sin() * 0.40;
+    let radius = 12.2;
+    for mut transform in &mut camera {
+        transform.translation = Vec3::new(yaw.sin() * radius, -0.15, yaw.cos() * radius);
+        transform.look_at(Vec3::new(0.0, -0.15, 0.2), Vec3::Y);
     }
 }
