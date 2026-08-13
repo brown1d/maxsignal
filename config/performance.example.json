@@ -1,5 +1,5 @@
 {
-  "speech": "Twenty-four i is coming to IBC in Amsterdam. Press TEXT for the details.",
+  "speech": "Enter dialogue here.",
   "performance": [
     { "type": "head_jerk", "x": -24.0, "y": 4.0 },
     { "type": "freeze", "milliseconds": 160 },

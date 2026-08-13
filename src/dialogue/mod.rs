@@ -1,4 +1,7 @@
+use bevy::input::keyboard::Key;
+use bevy::input_focus::{AutoFocus, InputFocus};
 use bevy::prelude::*;
+use bevy::text::{EditableText, TextCursorStyle};
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
@@ -24,22 +27,94 @@ pub struct DialoguePlugin;
 impl Plugin for DialoguePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<VoicePlayer>()
-            .add_systems(Startup, seed_demo_performance)
-            .add_systems(Update, (keyboard_demo_commands, monitor_voice));
+            .add_systems(Startup, spawn_dialogue_interface)
+            .add_systems(
+                Update,
+                (submit_dialogue, keyboard_demo_commands, monitor_voice),
+            );
     }
 }
 
-fn seed_demo_performance(
-    mut queue: ResMut<PerformanceQueue>,
+#[derive(Component)]
+struct DialogueInput;
+
+fn spawn_dialogue_interface(mut commands: Commands) {
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(24),
+            right: px(24),
+            bottom: px(22),
+            height: px(58),
+            padding: UiRect::axes(px(16), px(10)),
+            border: px(2).all(),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.005, 0.012, 0.010, 0.90)),
+        BorderColor::all(Color::srgb(0.15, 0.95, 0.52)),
+        GlobalZIndex(100),
+        children![
+            (
+                Text::new("DIALOGUE >"),
+                TextFont::from_font_size(18.0),
+                TextColor(Color::srgb(0.15, 0.95, 0.52)),
+                Node {
+                    margin: UiRect::right(px(14)),
+                    ..default()
+                },
+            ),
+            (
+                DialogueInput,
+                EditableText::new(""),
+                TextCursorStyle::default(),
+                Text::new(""),
+                TextFont::from_font_size(18.0),
+                TextColor(Color::WHITE),
+                TextLayout::no_wrap(),
+                Node {
+                    flex_grow: 1.0,
+                    overflow: Overflow::clip_x(),
+                    ..default()
+                },
+                AutoFocus,
+            ),
+            (
+                Text::new("ENTER TO SPEAK"),
+                TextFont::from_font_size(13.0),
+                TextColor(Color::srgb(0.55, 0.65, 0.60)),
+                Node {
+                    margin: UiRect::left(px(14)),
+                    ..default()
+                },
+            )
+        ],
+    ));
+}
+
+fn submit_dialogue(
+    keys: Res<ButtonInput<Key>>,
+    focus: Res<InputFocus>,
+    mut inputs: Query<&mut EditableText, With<DialogueInput>>,
     mut player: ResMut<VoicePlayer>,
     mut activity: ResMut<VoiceActivity>,
     mut expression: ResMut<ExpressionState>,
 ) {
-    let packet = protocol::DialoguePacket::demo();
-    for command in packet.performance {
-        queue.0.push_back(command);
+    if !keys.just_pressed(Key::Enter) {
+        return;
     }
-    player.last_line = packet.speech;
+    let Some(entity) = focus.get() else {
+        return;
+    };
+    let Ok(mut input) = inputs.get_mut(entity) else {
+        return;
+    };
+    let text = input.value().into_iter().collect::<String>();
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+    player.last_line = text.to_owned();
+    input.clear();
     speak(&mut player, &mut activity, &mut expression);
 }
 
@@ -288,7 +363,12 @@ fn keyboard_demo_commands(
     mut activity: ResMut<VoiceActivity>,
     mut eyewear: ResMut<EyewearState>,
     mut expression: ResMut<ExpressionState>,
+    focus: Res<InputFocus>,
+    inputs: Query<(), With<DialogueInput>>,
 ) {
+    if focus.get().is_some_and(|entity| inputs.contains(entity)) {
+        return;
+    }
     if keys.just_pressed(KeyCode::KeyV) {
         speak(&mut player, &mut activity, &mut expression);
     }

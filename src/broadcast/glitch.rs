@@ -1,8 +1,12 @@
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use rand::Rng;
 
 #[derive(Component)]
 struct ScanLine;
+
+#[derive(Component)]
+pub(super) struct SignalOverlayCamera;
 
 #[derive(Component)]
 pub(super) struct DotCrawler {
@@ -28,6 +32,16 @@ pub(super) struct TearBar {
 }
 
 pub fn spawn_broadcast_overlay(mut commands: Commands) {
+    commands.spawn((
+        SignalOverlayCamera,
+        Camera2d,
+        Camera {
+            order: 3,
+            clear_color: ClearColorConfig::None,
+            ..default()
+        },
+        RenderLayers::layer(2),
+    ));
     // Fine dark scanlines establish the raster before the moving composite
     // artifacts are placed over it.
     for y in (-360..360).step_by(8) {
@@ -35,6 +49,7 @@ pub fn spawn_broadcast_overlay(mut commands: Commands) {
             ScanLine,
             Sprite::from_color(Color::srgba(0.0, 0.0, 0.0, 0.14), Vec2::new(1280.0, 2.0)),
             Transform::from_xyz(0.0, y as f32, 90.0),
+            RenderLayers::layer(2),
         ));
     }
 
@@ -50,6 +65,7 @@ pub fn spawn_broadcast_overlay(mut commands: Commands) {
                 Vec2::new(1280.0, 8.0 + i as f32 * 4.0),
             ),
             Transform::from_xyz(0.0, y, 95.0),
+            RenderLayers::layer(2),
         ));
     }
 
@@ -73,6 +89,7 @@ pub fn spawn_broadcast_overlay(mut commands: Commands) {
                 Vec2::new(1280.0, 5.0 + (i % 3) as f32 * 3.0),
             ),
             Transform::from_xyz(if red { 4.0 } else { -4.0 }, y, 93.0),
+            RenderLayers::layer(2),
         ));
     }
 
@@ -95,6 +112,7 @@ pub fn spawn_broadcast_overlay(mut commands: Commands) {
                 Vec2::new(12.0, 2.0),
             ),
             Transform::from_xyz(-620.0 + col * 82.0, 0.0, 96.0),
+            RenderLayers::layer(2),
         ));
     }
 
@@ -110,6 +128,7 @@ pub fn spawn_broadcast_overlay(mut commands: Commands) {
                 Vec2::new(1280.0, 18.0 + i as f32 * 9.0),
             ),
             Transform::from_xyz(0.0, -360.0, 94.0),
+            RenderLayers::layer(2),
         ));
     }
 }
@@ -126,7 +145,7 @@ pub fn animate_glitches(
     mut cameras: Query<
         &mut Transform,
         (
-            With<Camera2d>,
+            With<SignalOverlayCamera>,
             Without<TearBar>,
             Without<DotCrawler>,
             Without<ChromaBleed>,

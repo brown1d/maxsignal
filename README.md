@@ -74,7 +74,7 @@ For exhibition use, the useful output target is a stable 4:3 or SD conversion do
 
 ```json
 {
-  "speech": "Press TEXT for the details.",
+  "speech": "Enter dialogue here.",
   "performance": [
     { "type": "head_jerk", "x": 24.0, "y": 0.0 },
     { "type": "freeze", "milliseconds": 180 },
@@ -104,7 +104,7 @@ screenshots/   representative V2 appearance
 
 - Fixed `private_interfaces`/privacy errors for `TearBar` and `NeonLine`.
 - The component types now have `pub(super)` visibility, matching the systems that expose them to their parent plugin modules.
-- The startup demo now constructs and consumes `DialoguePacket::demo()`, removing the dead-code warnings for the packet and helper.
+- The app starts silently with a focused dialogue bar. Type text and press Enter to speak it.
 - Removed the unused `quad` helper from `presenter/face.rs`.
 - Refined presenter proportions, hair, glasses and jaw toward the supplied reference images.
 
