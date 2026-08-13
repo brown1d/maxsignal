@@ -14,6 +14,72 @@ pub fn register_assets(app: &mut App) {
     embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-slight.png");
     embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-medium.png");
     embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-wide.png");
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-rest-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-speak-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-peak-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-confused-rest-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-confused-speak-glasses.png"
+    );
+    embedded_asset!(app, "../../assets/presenter/emotion-sad-rest-glasses.png");
+    embedded_asset!(app, "../../assets/presenter/emotion-sad-speak-glasses.png");
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-indifferent-rest-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-indifferent-speak-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-rest-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-speak-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-laughing-peak-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-confused-rest-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-confused-speak-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-sad-rest-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-sad-speak-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-indifferent-rest-no-glasses.png"
+    );
+    embedded_asset!(
+        app,
+        "../../assets/presenter/emotion-indifferent-speak-no-glasses.png"
+    );
 }
 
 fn relief_depth(u: f32, v: f32) -> f32 {
@@ -144,12 +210,63 @@ pub fn spawn_presenter(
     ];
     let glasses = glasses_images.map(|image| materials.add(portrait_material(image)));
     let no_glasses = no_glasses_images.map(|image| materials.add(portrait_material(image)));
+    macro_rules! mat {
+        ($path:literal) => {
+            materials.add(portrait_material(load_embedded_asset!(&*assets, $path)))
+        };
+    }
+    let glasses_emotions = [
+        [
+            mat!("../../assets/presenter/emotion-laughing-rest-glasses.png"),
+            mat!("../../assets/presenter/emotion-laughing-speak-glasses.png"),
+            mat!("../../assets/presenter/emotion-laughing-peak-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-confused-rest-glasses.png"),
+            mat!("../../assets/presenter/emotion-confused-speak-glasses.png"),
+            mat!("../../assets/presenter/emotion-confused-speak-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-sad-rest-glasses.png"),
+            mat!("../../assets/presenter/emotion-sad-speak-glasses.png"),
+            mat!("../../assets/presenter/emotion-sad-speak-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-indifferent-rest-glasses.png"),
+            mat!("../../assets/presenter/emotion-indifferent-speak-glasses.png"),
+            mat!("../../assets/presenter/emotion-indifferent-speak-glasses.png"),
+        ],
+    ];
+    let no_glasses_emotions = [
+        [
+            mat!("../../assets/presenter/emotion-laughing-rest-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-laughing-speak-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-laughing-peak-no-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-confused-rest-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-confused-speak-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-confused-speak-no-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-sad-rest-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-sad-speak-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-sad-speak-no-glasses.png"),
+        ],
+        [
+            mat!("../../assets/presenter/emotion-indifferent-rest-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-indifferent-speak-no-glasses.png"),
+            mat!("../../assets/presenter/emotion-indifferent-speak-no-glasses.png"),
+        ],
+    ];
 
     // The face, glasses, shirt, suit and tie are now one uninterrupted mapped object.
     commands.spawn((
         HeadMaterialSet {
             glasses: glasses.clone(),
             no_glasses,
+            glasses_emotions,
+            no_glasses_emotions,
         },
         Mesh3d(meshes.add(portrait_relief_mesh())),
         MeshMaterial3d(glasses[0].clone()),

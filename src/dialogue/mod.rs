@@ -4,7 +4,10 @@ use std::time::Instant;
 
 mod protocol;
 
-use crate::presenter::{EyewearState, PerformanceCommand, PerformanceQueue, VoiceActivity};
+use crate::presenter::{
+    CameraShot, Expression, ExpressionState, EyewearState, PerformanceCommand, PerformanceQueue,
+    VoiceActivity,
+};
 
 #[derive(Resource, Default)]
 struct VoicePlayer {
@@ -12,6 +15,8 @@ struct VoicePlayer {
     last_line: String,
     speech_started: Option<Instant>,
     syllables: Vec<(f32, f32)>,
+    sentence_cuts: Vec<f32>,
+    next_cut: usize,
 }
 
 pub struct DialoguePlugin;
@@ -28,13 +33,14 @@ fn seed_demo_performance(
     mut queue: ResMut<PerformanceQueue>,
     mut player: ResMut<VoicePlayer>,
     mut activity: ResMut<VoiceActivity>,
+    mut expression: ResMut<ExpressionState>,
 ) {
     let packet = protocol::DialoguePacket::demo();
     for command in packet.performance {
         queue.0.push_back(command);
     }
     player.last_line = packet.speech;
-    speak(&mut player, &mut activity);
+    speak(&mut player, &mut activity, &mut expression);
 }
 
 fn spawn_voice(text: &str) -> std::io::Result<Child> {
@@ -55,12 +61,71 @@ fn spawn_voice(text: &str) -> std::io::Result<Child> {
         .spawn()
 }
 
-fn speak(player: &mut VoicePlayer, activity: &mut VoiceActivity) {
+fn infer_expression(text: &str) -> Expression {
+    let text = text.to_lowercase();
+    let count = |terms: &[&str]| terms.iter().filter(|term| text.contains(**term)).count();
+    let choices = [
+        (
+            count(&[
+                "haha",
+                "laugh",
+                "funny",
+                "hilarious",
+                "joke",
+                "wonderful",
+                "great news",
+            ]),
+            Expression::Laughing,
+        ),
+        (
+            count(&[
+                "confused", "unclear", "why", "how", "what", "not sure", "puzzl",
+            ]) + usize::from(text.contains('?')),
+            Expression::Confused,
+        ),
+        (
+            count(&[
+                "sad",
+                "sorry",
+                "unfortunately",
+                "regret",
+                "loss",
+                "failed",
+                "tragic",
+                "bad news",
+            ]),
+            Expression::Sad,
+        ),
+        (
+            count(&[
+                "whatever",
+                "anyway",
+                "don't care",
+                "doesn't matter",
+                "irrelevant",
+                "so what",
+                "meh",
+            ]),
+            Expression::Indifferent,
+        ),
+    ];
+    choices
+        .into_iter()
+        .max_by_key(|(score, _)| *score)
+        .filter(|(score, _)| *score > 0)
+        .map(|(_, value)| value)
+        .unwrap_or(Expression::Neutral)
+}
+
+fn speak(player: &mut VoicePlayer, activity: &mut VoiceActivity, expression: &mut ExpressionState) {
     if let Some(mut old_process) = player.process.take() {
         let _ = old_process.kill();
         let _ = old_process.wait();
     }
     player.syllables = syllable_envelope(&player.last_line);
+    expression.0 = infer_expression(&player.last_line);
+    player.sentence_cuts = sentence_cut_times(&player.last_line);
+    player.next_cut = 0;
     match spawn_voice(&player.last_line) {
         Ok(process) => {
             player.process = Some(process);
@@ -116,7 +181,29 @@ fn syllable_envelope(text: &str) -> Vec<(f32, f32)> {
     pulses
 }
 
-fn monitor_voice(mut player: ResMut<VoicePlayer>, mut activity: ResMut<VoiceActivity>) {
+fn sentence_cut_times(text: &str) -> Vec<f32> {
+    let mut cursor = 0.10;
+    let mut cuts = Vec::new();
+    for token in text.split_whitespace() {
+        let letters: String = token.chars().filter(|c| c.is_alphabetic()).collect();
+        let count = count_syllables(&letters);
+        cursor += 0.21 + count.saturating_sub(1) as f32 * 0.145;
+        if token.ends_with(['.', '!', '?']) {
+            cuts.push(cursor + 0.08);
+            cursor += 0.25;
+        } else {
+            cursor += 0.035;
+        }
+    }
+    cuts.pop();
+    cuts
+}
+
+fn monitor_voice(
+    mut player: ResMut<VoicePlayer>,
+    mut activity: ResMut<VoiceActivity>,
+    mut shot: ResMut<CameraShot>,
+) {
     if activity.speaking {
         let elapsed = player
             .speech_started
@@ -130,6 +217,21 @@ fn monitor_voice(mut player: ResMut<VoicePlayer>, mut activity: ResMut<VoiceActi
                 (1.0 - distance / 0.095).clamp(0.0, 1.0) * strength
             })
             .fold(0.0_f32, f32::max);
+        if player
+            .sentence_cuts
+            .get(player.next_cut)
+            .is_some_and(|cut| elapsed >= *cut)
+        {
+            player.next_cut += 1;
+            let hash = player
+                .last_line
+                .bytes()
+                .fold(2166136261_u32, |value, byte| {
+                    value.wrapping_mul(16777619) ^ byte as u32
+                });
+            let offset = 1 + ((hash as usize + player.next_cut * 3) % 4);
+            shot.0 = (shot.0 + offset) % 5;
+        }
     }
     let finished = player
         .process
@@ -143,15 +245,52 @@ fn monitor_voice(mut player: ResMut<VoicePlayer>, mut activity: ResMut<VoiceActi
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infers_supported_expressions() {
+        assert_eq!(
+            infer_expression("That joke was hilarious!"),
+            Expression::Laughing
+        );
+        assert_eq!(
+            infer_expression("Why does this not make sense?"),
+            Expression::Confused
+        );
+        assert_eq!(
+            infer_expression("Unfortunately, this is tragic news."),
+            Expression::Sad
+        );
+        assert_eq!(
+            infer_expression("Whatever. It doesn't matter."),
+            Expression::Indifferent
+        );
+        assert_eq!(
+            infer_expression("The broadcast begins at noon."),
+            Expression::Neutral
+        );
+    }
+
+    #[test]
+    fn finds_internal_sentence_cuts_only() {
+        let cuts = sentence_cut_times("One sentence. Another sentence! Final sentence.");
+        assert_eq!(cuts.len(), 2);
+        assert!(cuts[1] > cuts[0]);
+    }
+}
+
 fn keyboard_demo_commands(
     keys: Res<ButtonInput<KeyCode>>,
     mut queue: ResMut<PerformanceQueue>,
     mut player: ResMut<VoicePlayer>,
     mut activity: ResMut<VoiceActivity>,
     mut eyewear: ResMut<EyewearState>,
+    mut expression: ResMut<ExpressionState>,
 ) {
     if keys.just_pressed(KeyCode::KeyV) {
-        speak(&mut player, &mut activity);
+        speak(&mut player, &mut activity, &mut expression);
     }
     if keys.just_pressed(KeyCode::KeyS) {
         eyewear.sunglasses = !eyewear.sunglasses;

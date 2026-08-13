@@ -112,3 +112,6 @@ screenshots/   representative V2 appearance
 
 The creation environment used to package this repository did not have `rustc`/`cargo` installed, so the source archive has not been locally compiled there. The repository includes a GitHub Actions compile job to perform `cargo check` and a release build on Ubuntu.
 - `S` toggles the presenter's sunglasses; uncovered-eye speech frames animate the eyebrows.
+- Dialogue text automatically selects neutral, laughing, confused, sad, or indifferent expression banks.
+- Sentence boundaries trigger hard cuts among five camera positions without repeating the current shot.
+- Strong laughing syllables use a dedicated head-back, open-mouth peak-laugh frame.

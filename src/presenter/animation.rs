@@ -1,11 +1,15 @@
 use bevy::prelude::*;
 
-use super::{EyewearState, HeadCamera, HeadMaterialSet, MouthMaterials, VoiceActivity};
+use super::{
+    CameraShot, Expression, ExpressionState, EyewearState, HeadCamera, HeadMaterialSet,
+    MouthMaterials, VoiceActivity,
+};
 
 pub fn mouth_motion(
-    time: Res<Time>,
     voice: Res<VoiceActivity>,
     eyewear: Res<EyewearState>,
+    expression: Res<ExpressionState>,
+    shot: Res<CameraShot>,
     mut sectors: Query<(&HeadMaterialSet, &mut MouthMaterials)>,
     mut camera: Query<&mut Transform, With<HeadCamera>>,
 ) {
@@ -19,20 +23,47 @@ pub fn mouth_motion(
         0
     };
     for (set, mut active_material) in &mut sectors {
-        let bank = if eyewear.sunglasses {
-            &set.glasses
+        active_material.0 = if expression.0 == Expression::Neutral {
+            let bank = if eyewear.sunglasses {
+                &set.glasses
+            } else {
+                &set.no_glasses
+            };
+            bank[speech_frame].clone()
         } else {
-            &set.no_glasses
+            let emotion = match expression.0 {
+                Expression::Laughing => 0,
+                Expression::Confused => 1,
+                Expression::Sad => 2,
+                Expression::Indifferent => 3,
+                Expression::Neutral => unreachable!(),
+            };
+            let frame = if expression.0 == Expression::Laughing && voice.mouth_open > 0.72 {
+                2
+            } else {
+                usize::from(voice.mouth_open > 0.08)
+            };
+            let bank = if eyewear.sunglasses {
+                &set.glasses_emotions
+            } else {
+                &set.no_glasses_emotions
+            };
+            bank[emotion][frame].clone()
         };
-        active_material.0 = bank[speech_frame].clone();
     }
 
     // A real camera physically orbits a stationary curved mesh. There is no
     // screen-space fade or image-layer substitution between viewing angles.
-    let yaw = (time.elapsed_secs() * 0.24).sin() * 0.40;
-    let radius = 12.2;
+    let shots = [
+        (Vec3::new(0.0, -0.15, 12.2), 0.61),
+        (Vec3::new(-3.8, -0.10, 11.5), 0.60),
+        (Vec3::new(3.8, -0.10, 11.5), 0.60),
+        (Vec3::new(0.0, 0.35, 10.6), 0.57),
+        (Vec3::new(-2.2, 0.65, 11.3), 0.59),
+    ];
+    let (position, _) = shots[shot.0 % shots.len()];
     for mut transform in &mut camera {
-        transform.translation = Vec3::new(yaw.sin() * radius, -0.15, yaw.cos() * radius);
+        transform.translation = position;
         transform.look_at(Vec3::new(0.0, -0.15, 0.2), Vec3::Y);
     }
 }

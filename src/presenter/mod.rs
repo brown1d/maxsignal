@@ -14,6 +14,8 @@ impl Plugin for PresenterPlugin {
         app.init_resource::<PerformanceQueue>()
             .init_resource::<VoiceActivity>()
             .init_resource::<EyewearState>()
+            .init_resource::<ExpressionState>()
+            .init_resource::<CameraShot>()
             .add_systems(Startup, face::spawn_presenter)
             .add_systems(
                 Update,
@@ -38,7 +40,25 @@ pub struct PresenterRoot;
 pub struct HeadMaterialSet {
     pub glasses: [Handle<StandardMaterial>; 4],
     pub no_glasses: [Handle<StandardMaterial>; 4],
+    pub glasses_emotions: [[Handle<StandardMaterial>; 3]; 4],
+    pub no_glasses_emotions: [[Handle<StandardMaterial>; 3]; 4],
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Expression {
+    #[default]
+    Neutral,
+    Laughing,
+    Confused,
+    Sad,
+    Indifferent,
+}
+
+#[derive(Resource, Default)]
+pub struct ExpressionState(pub Expression);
+
+#[derive(Resource, Default)]
+pub struct CameraShot(pub usize);
 
 #[derive(Resource)]
 pub struct EyewearState {
