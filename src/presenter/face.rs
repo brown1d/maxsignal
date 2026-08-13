@@ -1,4 +1,4 @@
-use bevy::asset::{embedded_asset, load_embedded_asset, RenderAssetUsages};
+use bevy::asset::{RenderAssetUsages, embedded_asset, load_embedded_asset};
 use bevy::mesh::Indices;
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -6,10 +6,14 @@ use bevy::render::render_resource::PrimitiveTopology;
 use super::{HeadCamera, HeadMaterialSet};
 
 pub fn register_assets(app: &mut App) {
-    embedded_asset!(app, "../../assets/presenter/cgi-closed.png");
-    embedded_asset!(app, "../../assets/presenter/cgi-slight.png");
-    embedded_asset!(app, "../../assets/presenter/cgi-medium.png");
-    embedded_asset!(app, "../../assets/presenter/cgi-wide.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-glasses-closed.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-glasses-slight.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-glasses-medium.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-glasses-wide.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-closed.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-slight.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-medium.png");
+    embedded_asset!(app, "../../assets/presenter/cgi-bust-no-glasses-wide.png");
 }
 
 fn relief_depth(u: f32, v: f32) -> f32 {
@@ -105,21 +109,50 @@ pub fn spawn_presenter(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let images = [
-        load_embedded_asset!(&*assets, "../../assets/presenter/cgi-closed.png"),
-        load_embedded_asset!(&*assets, "../../assets/presenter/cgi-slight.png"),
-        load_embedded_asset!(&*assets, "../../assets/presenter/cgi-medium.png"),
-        load_embedded_asset!(&*assets, "../../assets/presenter/cgi-wide.png"),
+    let glasses_images = [
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-glasses-closed.png"
+        ),
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-glasses-slight.png"
+        ),
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-glasses-medium.png"
+        ),
+        load_embedded_asset!(&*assets, "../../assets/presenter/cgi-bust-glasses-wide.png"),
     ];
-    let material_handles = images.map(|image| materials.add(portrait_material(image)));
+    let no_glasses_images = [
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-no-glasses-closed.png"
+        ),
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-no-glasses-slight.png"
+        ),
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-no-glasses-medium.png"
+        ),
+        load_embedded_asset!(
+            &*assets,
+            "../../assets/presenter/cgi-bust-no-glasses-wide.png"
+        ),
+    ];
+    let glasses = glasses_images.map(|image| materials.add(portrait_material(image)));
+    let no_glasses = no_glasses_images.map(|image| materials.add(portrait_material(image)));
 
     // The face, glasses, shirt, suit and tie are now one uninterrupted mapped object.
     commands.spawn((
         HeadMaterialSet {
-            materials: material_handles.clone(),
+            glasses: glasses.clone(),
+            no_glasses,
         },
         Mesh3d(meshes.add(portrait_relief_mesh())),
-        MeshMaterial3d(material_handles[0].clone()),
+        MeshMaterial3d(glasses[0].clone()),
         Transform::from_xyz(0.0, -0.15, 0.0),
     ));
 

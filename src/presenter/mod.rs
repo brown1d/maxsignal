@@ -13,6 +13,7 @@ impl Plugin for PresenterPlugin {
         face::register_assets(app);
         app.init_resource::<PerformanceQueue>()
             .init_resource::<VoiceActivity>()
+            .init_resource::<EyewearState>()
             .add_systems(Startup, face::spawn_presenter)
             .add_systems(
                 Update,
@@ -35,7 +36,19 @@ pub struct PresenterRoot;
 
 #[derive(Component)]
 pub struct HeadMaterialSet {
-    pub materials: [Handle<StandardMaterial>; 4],
+    pub glasses: [Handle<StandardMaterial>; 4],
+    pub no_glasses: [Handle<StandardMaterial>; 4],
+}
+
+#[derive(Resource)]
+pub struct EyewearState {
+    pub sunglasses: bool,
+}
+
+impl Default for EyewearState {
+    fn default() -> Self {
+        Self { sunglasses: true }
+    }
 }
 
 #[derive(Component)]

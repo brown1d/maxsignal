@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 
-use super::{HeadCamera, HeadMaterialSet, MouthMaterials, VoiceActivity};
+use super::{EyewearState, HeadCamera, HeadMaterialSet, MouthMaterials, VoiceActivity};
 
 pub fn mouth_motion(
     time: Res<Time>,
     voice: Res<VoiceActivity>,
+    eyewear: Res<EyewearState>,
     mut sectors: Query<(&HeadMaterialSet, &mut MouthMaterials)>,
     mut camera: Query<&mut Transform, With<HeadCamera>>,
 ) {
@@ -18,7 +19,12 @@ pub fn mouth_motion(
         0
     };
     for (set, mut active_material) in &mut sectors {
-        active_material.0 = set.materials[speech_frame].clone();
+        let bank = if eyewear.sunglasses {
+            &set.glasses
+        } else {
+            &set.no_glasses
+        };
+        active_material.0 = bank[speech_frame].clone();
     }
 
     // A real camera physically orbits a stationary curved mesh. There is no

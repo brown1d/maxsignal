@@ -4,7 +4,7 @@ use std::time::Instant;
 
 mod protocol;
 
-use crate::presenter::{PerformanceCommand, PerformanceQueue, VoiceActivity};
+use crate::presenter::{EyewearState, PerformanceCommand, PerformanceQueue, VoiceActivity};
 
 #[derive(Resource, Default)]
 struct VoicePlayer {
@@ -148,9 +148,13 @@ fn keyboard_demo_commands(
     mut queue: ResMut<PerformanceQueue>,
     mut player: ResMut<VoicePlayer>,
     mut activity: ResMut<VoiceActivity>,
+    mut eyewear: ResMut<EyewearState>,
 ) {
     if keys.just_pressed(KeyCode::KeyV) {
         speak(&mut player, &mut activity);
+    }
+    if keys.just_pressed(KeyCode::KeyS) {
+        eyewear.sunglasses = !eyewear.sunglasses;
     }
     if keys.just_pressed(KeyCode::Space) {
         queue
