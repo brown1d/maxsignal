@@ -31,13 +31,14 @@ pub(super) struct TearBar {
     home_y: f32,
 }
 
-pub fn spawn_broadcast_overlay(mut commands: Commands) {
+pub fn spawn_broadcast_overlay(mut commands: Commands, config: Res<crate::api::MaxConfig>) {
     commands.spawn((
         SignalOverlayCamera,
         Camera2d,
         Camera {
             order: 3,
             clear_color: ClearColorConfig::None,
+            viewport: Some(config.viewport.camera_viewport()),
             ..default()
         },
         RenderLayers::layer(2),

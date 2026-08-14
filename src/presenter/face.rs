@@ -171,6 +171,7 @@ fn portrait_material(texture: Handle<Image>) -> StandardMaterial {
 
 pub fn spawn_presenter(
     mut commands: Commands,
+    config: Res<crate::api::MaxConfig>,
     assets: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -279,6 +280,7 @@ pub fn spawn_presenter(
         Camera {
             order: 1,
             clear_color: ClearColorConfig::None,
+            viewport: Some(config.viewport.camera_viewport()),
             ..default()
         },
         Projection::Perspective(PerspectiveProjection {

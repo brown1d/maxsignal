@@ -8,7 +8,8 @@ MAX//SIGNAL is a native Rust/Bevy synthetic broadcast presenter inspired by late
 
 - Language: Rust 2024 edition
 - Engine: Bevy 0.19
-- Primary resolution: 1280 x 720, resizable
+- Program viewport: 1280 x 720
+- Control-dock window area: 1280 x 80 below the program viewport
 - Voice: macOS `say` using Daniel at 205 words per minute; `espeak` fallback on other platforms
 - Release executable: `target/release/maxsignal`
 
@@ -55,11 +56,13 @@ Sunglasses are part of the source imagery rather than a separate geometry overla
 
 ## 5. Dialogue Interface
 
-The application starts silently. A focused dialogue bar appears along the bottom of the window.
+The application starts silently. A focused dialogue bar appears in a dedicated opaque control dock below the 1280 x 720 program viewport, outside the animation and NTSC composite.
 
 1. Click the bar if it is not focused.
 2. Type dialogue.
 3. Press Enter.
+
+The dock also contains a `REMOVE SHADES` / `ADD SHADES` button. It remains usable while the dialogue field owns keyboard focus.
 
 Submission sends the entered string through the voice, expression, mouth-envelope, and shot-cut pipeline. Empty submissions do nothing. The field clears after a valid submission.
 
@@ -92,6 +95,7 @@ Speech animation uses a locally calculated syllable envelope:
 - Neutral speech maps intensity to four mouth images.
 - Other expressions map activity to resting/speaking images.
 - Laughing maps high intensity to the head-back peak frame.
+- A short 180 ms voice-start compensation holds the mouth closed while the system TTS process initializes, aligning the first visible pulse with audible speech.
 
 This system is intentionally deterministic and does not require audio analysis or a network service.
 
@@ -111,7 +115,21 @@ Selection uses a text-derived hash plus sentence index. It appears variable, avo
 
 ## 9. Studio and NTSC Effects
 
-The studio is an interior cube/line room showing at most three colored sides. Each side owns its horizontal line treatment. The external background is black/absent.
+The room has exactly three visible surfaces: a yellow floor, a neon-red left
+wall, and a neon-green right wall. Each surface owns its lines; wall and floor
+lines terminate at their shared edges rather than crossing onto another face.
+
+Room colors are runtime API state. A host can send:
+
+```rust
+actions.send(MaxAction::SetRoomColors(MaxRoomColors {
+    floor: [1.0, 0.83, 0.02],
+    left_wall: [1.0, 0.03, 0.05],
+    right_wall: [0.10, 1.0, 0.18],
+}));
+```
+
+The studio is an interior cube/line room showing exactly three colored sides: a yellow rear plane, green left plane, and red right plane. Two vertical junctions define where the three planes meet. The ceiling, floor, and outer wall edges extend beyond the camera raster, so the camera reads as being inside a much larger cube instead of viewing a small outlined box. Each plane owns its horizontal line treatment and lines terminate at plane junctions.
 
 The signal overlay includes:
 
@@ -127,7 +145,8 @@ All overlay entities are assigned to render layer 2 and drawn by the final camer
 ## 10. Controls
 
 - Dialogue bar + Enter: speak submitted text
-- `S`: toggle sunglasses when the input is not focused
+- `REMOVE SHADES` / `ADD SHADES`: toggle sunglasses without leaving the dialogue field
+- `S`: keyboard sunglasses toggle when the input is not focused
 - `V`: replay the last submitted line when the input is not focused
 - Space: queue a head jerk
 - `G`: queue a grin performance command

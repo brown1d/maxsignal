@@ -105,6 +105,7 @@ screenshots/   representative V2 appearance
 - Fixed `private_interfaces`/privacy errors for `TearBar` and `NeonLine`.
 - The component types now have `pub(super)` visibility, matching the systems that expose them to their parent plugin modules.
 - The app starts silently with a focused dialogue bar. Type text and press Enter to speak it.
+- The dialogue bar and shades button live in a dedicated control dock below the program image.
 - Removed the unused `quad` helper from `presenter/face.rs`.
 - Refined presenter proportions, hair, glasses and jaw toward the supplied reference images.
 

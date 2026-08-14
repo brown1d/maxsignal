@@ -11,6 +11,7 @@ use crate::presenter::{
     CameraShot, Expression, ExpressionState, EyewearState, PerformanceCommand, PerformanceQueue,
     VoiceActivity,
 };
+use crate::api::{MaxAction, MaxActionQueue, MaxConfig, MaxRoomColors};
 
 #[derive(Resource, Default)]
 struct VoicePlayer {
@@ -30,7 +31,13 @@ impl Plugin for DialoguePlugin {
             .add_systems(Startup, spawn_dialogue_interface)
             .add_systems(
                 Update,
-                (submit_dialogue, keyboard_demo_commands, monitor_voice),
+                (
+                    submit_dialogue,
+                    consume_max_actions,
+                    toggle_shades_button,
+                    keyboard_demo_commands,
+                    monitor_voice,
+                ),
             );
     }
 }
@@ -38,19 +45,28 @@ impl Plugin for DialoguePlugin {
 #[derive(Component)]
 struct DialogueInput;
 
-fn spawn_dialogue_interface(mut commands: Commands) {
+#[derive(Component)]
+struct ShadesButton;
+
+#[derive(Component)]
+struct ShadesButtonLabel;
+
+const VOICE_STARTUP_DELAY: f32 = 0.18;
+
+fn spawn_dialogue_interface(mut commands: Commands, config: Res<MaxConfig>) {
+    if !config.show_controls { return; }
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
             left: px(24),
             right: px(24),
-            bottom: px(22),
-            height: px(58),
+            bottom: px(10),
+            height: px(60),
             padding: UiRect::axes(px(16), px(10)),
             border: px(2).all(),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.005, 0.012, 0.010, 0.90)),
+        BackgroundColor(Color::srgb(0.005, 0.012, 0.010)),
         BorderColor::all(Color::srgb(0.15, 0.95, 0.52)),
         GlobalZIndex(100),
         children![
@@ -86,18 +102,55 @@ fn spawn_dialogue_interface(mut commands: Commands) {
                     margin: UiRect::left(px(14)),
                     ..default()
                 },
-            )
+            ),
+            (
+                ShadesButton,
+                Button,
+                Node {
+                    margin: UiRect::left(px(14)),
+                    padding: UiRect::axes(px(14), px(8)),
+                    border: px(1).all(),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.06, 0.10, 0.08)),
+                BorderColor::all(Color::srgb(0.15, 0.95, 0.52)),
+                children![(
+                    ShadesButtonLabel,
+                    Text::new("REMOVE SHADES"),
+                    TextFont::from_font_size(13.0),
+                    TextColor(Color::WHITE),
+                )],
+            ),
         ],
     ));
+}
+
+fn toggle_shades_button(
+    buttons: Query<&Interaction, (Changed<Interaction>, With<ShadesButton>)>,
+    mut eyewear: ResMut<EyewearState>,
+    mut labels: Query<&mut Text, With<ShadesButtonLabel>>,
+) {
+    if buttons
+        .iter()
+        .any(|interaction| *interaction == Interaction::Pressed)
+    {
+        eyewear.sunglasses = !eyewear.sunglasses;
+        for mut label in &mut labels {
+            label.0 = if eyewear.sunglasses {
+                "REMOVE SHADES"
+            } else {
+                "ADD SHADES"
+            }
+            .into();
+        }
+    }
 }
 
 fn submit_dialogue(
     keys: Res<ButtonInput<Key>>,
     focus: Res<InputFocus>,
     mut inputs: Query<&mut EditableText, With<DialogueInput>>,
-    mut player: ResMut<VoicePlayer>,
-    mut activity: ResMut<VoiceActivity>,
-    mut expression: ResMut<ExpressionState>,
+    mut actions: ResMut<MaxActionQueue>,
 ) {
     if !keys.just_pressed(Key::Enter) {
         return;
@@ -109,13 +162,41 @@ fn submit_dialogue(
         return;
     };
     let text = input.value().into_iter().collect::<String>();
-    let text = text.trim();
+    let text = text.trim().to_owned();
     if text.is_empty() {
         return;
     }
-    player.last_line = text.to_owned();
     input.clear();
-    speak(&mut player, &mut activity, &mut expression);
+    actions.send(MaxAction::Speak(text));
+}
+
+fn consume_max_actions(
+    mut actions: ResMut<MaxActionQueue>,
+    mut player: ResMut<VoicePlayer>,
+    mut activity: ResMut<VoiceActivity>,
+    mut expression: ResMut<ExpressionState>,
+    mut eyewear: ResMut<EyewearState>,
+    mut shot: ResMut<CameraShot>,
+    mut colors: ResMut<MaxRoomColors>,
+) {
+    while let Some(action) = actions.0.pop_front() {
+        match action {
+            MaxAction::Speak(text) => {
+                player.last_line = text;
+                speak(&mut player, &mut activity, &mut expression);
+            }
+            MaxAction::CutShot => shot.0 = (shot.0 + 1) % 5,
+            MaxAction::Neutral => { expression.0 = Expression::Neutral; activity.mouth_open = 0.0; }
+            MaxAction::Laugh => { expression.0 = Expression::Laughing; activity.mouth_open = 0.25; }
+            MaxAction::BigLaugh => { expression.0 = Expression::Laughing; activity.mouth_open = 1.0; }
+            MaxAction::Confused => expression.0 = Expression::Confused,
+            MaxAction::Sad => expression.0 = Expression::Sad,
+            MaxAction::Indifferent => expression.0 = Expression::Indifferent,
+            MaxAction::ToggleShades => eyewear.sunglasses = !eyewear.sunglasses,
+            MaxAction::SetShades(value) => eyewear.sunglasses = value,
+            MaxAction::SetRoomColors(value) => *colors = value,
+        }
+    }
 }
 
 fn spawn_voice(text: &str) -> std::io::Result<Child> {
@@ -280,10 +361,12 @@ fn monitor_voice(
     mut shot: ResMut<CameraShot>,
 ) {
     if activity.speaking {
-        let elapsed = player
+        let elapsed = (player
             .speech_started
             .map(|started| started.elapsed().as_secs_f32())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            - VOICE_STARTUP_DELAY)
+            .max(0.0);
         activity.mouth_open = player
             .syllables
             .iter()
